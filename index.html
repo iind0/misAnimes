@@ -59,6 +59,7 @@ dialog input,dialog select{width:100%;background:var(--in);border:1px solid var(
     <button id="theme" type="button">Modo oscuro</button>
     <button id="exp" type="button">Exportar</button>
     <button id="imp" type="button">Importar</button>
+    <button id="cov" type="button">Buscar portadas</button>
     <button id="add" type="button" class="p">Agregar anime</button>
     <input id="file" type="file" accept="application/json" hidden>
   </div>
@@ -73,6 +74,7 @@ dialog input,dialog select{width:100%;background:var(--in);border:1px solid var(
     </select>
   </div>
   <p id="cnt"></p>
+  <p id="msg" class="sub" role="status"></p>
   <div id="grid" class="grid"></div>
 </main>
 
@@ -198,6 +200,42 @@ $('file').onchange=function(){
     }catch(x){alert('No pude leer ese archivo. Usa uno exportado desde esta página.')}
   };
   r.readAsText(f);this.value='';
+};
+
+var busy=false;
+function pausa(ms){return new Promise(function(r){setTimeout(r,ms)})}
+async function buscarUno(a){
+  var q=a.t.replace(/\(.*?\)/g,'').trim();
+  for(var n=0;n<3;n++){
+    var r=await fetch('https://api.jikan.moe/v4/anime?limit=1&q='+encodeURIComponent(q));
+    if(r.status===429){await pausa(2500);continue}
+    if(!r.ok)return null;
+    var j=await r.json();
+    return j.data&&j.data[0]?j.data[0]:null;
+  }
+  return null;
+}
+$('cov').onclick=async function(){
+  if(busy)return;
+  var falta=items.filter(function(a){return !a.u||a.e===''});
+  if(!falta.length){$('msg').textContent='Todos los animes ya tienen portada y episodios.';return}
+  busy=true;$('cov').disabled=true;
+  var ok=0;
+  try{
+    for(var i=0;i<falta.length;i++){
+      $('msg').textContent='Buscando '+(i+1)+' de '+falta.length+': '+falta[i].t;
+      var d=await buscarUno(falta[i]);
+      if(d){
+        var img=d.images&&d.images.jpg&&d.images.jpg.image_url;
+        if(!falta[i].u&&img)falta[i].u=img;
+        if(falta[i].e===''&&d.episodes)falta[i].e=d.episodes;
+        ok++;save();render();
+      }
+      await pausa(1100);
+    }
+    $('msg').textContent='Listo: encontré datos para '+ok+' de '+falta.length+'. Si alguna portada quedó mal, corrígela con Editar.';
+  }catch(x){$('msg').textContent='No pude conectarme a la base de datos. Revisa tu internet e intenta de nuevo.'}
+  busy=false;$('cov').disabled=false;
 };
 
 fillGenres();render();
