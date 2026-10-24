@@ -206,12 +206,18 @@ var busy=false;
 function pausa(ms){return new Promise(function(r){setTimeout(r,ms)})}
 async function buscarUno(a){
   var q=a.t.replace(/\(.*?\)/g,'').trim();
+  var query='query($s:String){Media(search:$s,type:ANIME){coverImage{large}episodes}}';
   for(var n=0;n<3;n++){
-    var r=await fetch('https://api.jikan.moe/v4/anime?limit=1&q='+encodeURIComponent(q));
-    if(r.status===429){await pausa(2500);continue}
-    if(!r.ok)return null;
+    var r=await fetch('https://graphql.anilist.co',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({query:query,variables:{s:q}})
+    });
+    if(r.status===429){await pausa(3000);continue}
     var j=await r.json();
-    return j.data&&j.data[0]?j.data[0]:null;
+    var m=j&&j.data&&j.data.Media;
+    if(!m)return null;
+    return {img:m.coverImage&&m.coverImage.large,eps:m.episodes};
   }
   return null;
 }
@@ -226,12 +232,11 @@ $('cov').onclick=async function(){
       $('msg').textContent='Buscando '+(i+1)+' de '+falta.length+': '+falta[i].t;
       var d=await buscarUno(falta[i]);
       if(d){
-        var img=d.images&&d.images.jpg&&d.images.jpg.image_url;
-        if(!falta[i].u&&img)falta[i].u=img;
-        if(falta[i].e===''&&d.episodes)falta[i].e=d.episodes;
+        if(!falta[i].u&&d.img)falta[i].u=d.img;
+        if(falta[i].e===''&&d.eps)falta[i].e=d.eps;
         ok++;save();render();
       }
-      await pausa(1100);
+      await pausa(800);
     }
     $('msg').textContent='Listo: encontré datos para '+ok+' de '+falta.length+'. Si alguna portada quedó mal, corrígela con Editar.';
   }catch(x){$('msg').textContent='No pude conectarme a la base de datos. Revisa tu internet e intenta de nuevo.'}
