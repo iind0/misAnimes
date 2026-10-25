@@ -73,6 +73,7 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
     <button id="imp" type="button">Importar</button>
     <button id="cov" type="button">Buscar portadas</button>
     <button id="sb" type="button">Buscar anime</button>
+    <button id="login" type="button">Iniciar sesión con Google</button>
     <button id="add" type="button" class="p">Agregar anime</button>
     <input id="file" type="file" accept="application/json" hidden>
   </div>
@@ -131,13 +132,16 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
   <div class="acts"><button type="button" id="sx">Cerrar</button></div>
 </dialog>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 var KEY='mis-animes-v1', TKEY='mis-animes-tema';
 function load(){
   try{var r=localStorage.getItem(KEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))return a}}catch(x){}
   return [];
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(x){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(x){}nube()}
 var items=load(), editId=null;
 var $=function(id){return document.getElementById(id)};
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
@@ -216,8 +220,8 @@ $('file').onchange=function(){
     try{
       var a=JSON.parse(r.result);
       if(!Array.isArray(a)||a.some(function(x){return !x||!x.t}))throw 0;
-      items=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||''}});
-      save();fillGenres();render();
+      var imp=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||''}});
+      items=mezclar(items,imp);save();fillGenres();render();
     }catch(x){alert('No pude leer ese archivo. Usa uno exportado desde esta página.')}
   };
   r.readAsText(f);this.value='';
@@ -316,6 +320,59 @@ $('rl').onclick=function(ev){
 };
 
 $('cov').onclick=buscarPortadas;
+
+
+function mezclar(a,b){
+  var m={},out=[];
+  a.concat(b).forEach(function(x){
+    var k=String(x.t).toLowerCase();
+    if(!m[k]){m[k]=Object.assign({},x);out.push(m[k])}
+    else{var y=m[k];['g','s','e','p','u'].forEach(function(f){if((y[f]===''||y[f]==null)&&x[f]!==''&&x[f]!=null)y[f]=x[f]})}
+  });
+  return out;
+}
+var FB_CONFIG={apiKey:"AIzaSyDS9O0I0p5rXTCDk7ZN71ToJKV0KpSi5Hg",authDomain:"datamisanimes.firebaseapp.com",projectId:"datamisanimes",storageBucket:"datamisanimes.firebasestorage.app",messagingSenderId:"297219385556",appId:"1:297219385556:web:39e584a847603fe0eb3341"};
+var usuario=null,db=null,tNube=null;
+function nube(){
+  if(!usuario||!db)return;
+  clearTimeout(tNube);
+  tNube=setTimeout(function(){
+    db.collection('listas').doc(usuario.uid).set({data:JSON.stringify(items),actualizado:Date.now()})
+      .catch(function(){$('msg').textContent='No pude guardar en la nube. Tus cambios siguen en este navegador.'});
+  },700);
+}
+function pintarLogin(){
+  $('login').textContent=usuario?'Cerrar sesión ('+(usuario.displayName||usuario.email||'Google')+')':'Iniciar sesión con Google';
+}
+if(FB_CONFIG.apiKey&&window.firebase){
+  firebase.initializeApp(FB_CONFIG);
+  db=firebase.firestore();
+  var auth=firebase.auth();
+  $('login').onclick=function(){
+    if(usuario){
+      auth.signOut().then(function(){usuario=null;items=[];save();fillGenres();render();pintarLogin();$('msg').textContent='Sesión cerrada.'});
+      return;
+    }
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){$('msg').textContent='No pude iniciar sesión ('+(e.code||'error')+').'});
+  };
+  auth.onAuthStateChanged(function(u){
+    usuario=u;pintarLogin();
+    if(!u)return;
+    $('msg').textContent='Cargando tu lista...';
+    db.collection('listas').doc(u.uid).get().then(function(d){
+      var remota=[];
+      if(d.exists){try{remota=JSON.parse(d.data().data)||[]}catch(x){}}
+      items=mezclar(remota,items);
+      save();fillGenres();render();
+      $('msg').textContent='Lista cargada desde tu cuenta.';
+      if(items.some(function(a){return !a.u}))buscarPortadas();
+    }).catch(function(){$('msg').textContent='No pude leer tu lista de la nube. Revisa las reglas de Firestore.'});
+  });
+}else{
+  $('login').onclick=function(){
+    alert(window.firebase?'Falta pegar la configuración de Firebase en el archivo (FB_CONFIG).':'No pude cargar Firebase. Revisa tu internet.');
+  };
+}
 
 fillGenres();render();
 if(items.some(function(a){return !a.u}))buscarPortadas();
