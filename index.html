@@ -1,40 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
- <!-- Contenedor con estilos para ver dónde está la ventana del anuncio -->
-<div class="zona-anuncio-debug" style="margin: 20px 0; min-height: 100px;">
-    
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3940256099942544"
-         crossorigin="anonymous"></script>
-    <ins class="adsbygoogle"
-         style="display:block"
-         data-ad-client="ca-pub-3940256099942544"
-         data-ad-slot="6305972111"
-         data-ad-format="auto"
-         data-full-width-responsive="true"></ins>
-    <script>
-         (adsbygoogle = window.adsbygoogle || []).push({});
-    </script>
-
-</div>
-
-<style>
-/* Estilo temporal para ver la caja del anuncio claramente */
-.zona-anuncio-debug {
-  border: 2px dashed #ff4757;
-  background-color: rgba(255, 71, 87, 0.05);
-  position: relative;
-}
-.zona-anuncio-debug::before {
-  content: "Espacio del Anuncio";
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  font-size: 11px;
-  color: #ff4757;
-  font-family: sans-serif;
-}
-</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mis animes</title>
@@ -92,6 +58,7 @@ details.fl{margin-top:10px}
 details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
 .sr{display:flex;gap:8px}
 .sr input{flex:1}
+.cv a{display:block;width:100%;height:100%;color:inherit;text-decoration:none;cursor:pointer}
 @media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
 </style>
 </head>
@@ -108,6 +75,7 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
     <button id="cov" type="button">Buscar portadas</button>
     <button id="sb" type="button">Buscar anime</button>
     <button id="login" type="button">Iniciar sesión con Google</button>
+    <button id="fbk" type="button">Enlace de respaldo</button>
     <button id="add" type="button" class="p">Agregar anime</button>
     <input id="file" type="file" accept="application/json" hidden>
   </div>
@@ -139,6 +107,7 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
       <label>Puntaje (0 a 10)<input id="p" type="number" min="0" max="10" step="0.5"></label>
     </div>
     <label>Link de la portada<input id="u" type="url" placeholder="https://..."></label>
+    <label>Link para verlo (opcional)<input id="v" type="url" placeholder="https://..."></label>
     <datalist id="gl"></datalist>
     <div class="acts">
       <button type="button" class="d" id="del">Eliminar</button>
@@ -180,6 +149,26 @@ var items=load(), editId=null;
 var $=function(id){return document.getElementById(id)};
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 
+var FKEY='mis-animes-respaldo',FALLBACK='';
+try{FALLBACK=localStorage.getItem(FKEY)||''}catch(x){}
+function seguro(u){return /^https?:\/\//i.test(u||'')?u:''}
+function destino(a){
+  var u=seguro(a.v);
+  if(!u&&seguro(FALLBACK))u=FALLBACK.replace('{titulo}',encodeURIComponent(a.t));
+  return u;
+}
+function envolver(a,inner){
+  var u=destino(a);
+  return u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" title="Abrir enlace para verlo">'+inner+'</a>':inner;
+}
+$('fbk').onclick=function(){
+  var u=prompt('Pega la página a la que quieres ir cuando un anime no tenga link propio. Puedes usar {titulo} y se reemplaza por el nombre del anime. Ejemplo: https://www.google.com/search?q={titulo}+ver+online',FALLBACK);
+  if(u===null)return;
+  u=u.trim();
+  if(u&&!seguro(u)){alert('El enlace tiene que empezar con http:// o https://');return}
+  FALLBACK=u;try{localStorage.setItem(FKEY,u)}catch(x){}
+  render();
+};
 function genres(){
   var set={};items.forEach(function(a){set[a.g]=1});
   return Object.keys(set).sort(function(a,b){return a.localeCompare(b,'es')});
@@ -200,7 +189,7 @@ function render(){
     var img=a.u?'<img src="'+esc(a.u)+'" alt="Portada de '+esc(a.t)+'" loading="lazy" referrerpolicy="no-referrer">':esc(a.t);
     var meta=esc(a.g)+(a.e!==''&&a.e!=null?' · '+esc(a.e)+' episodios':'');
     var sc=(a.p!==''&&a.p!=null)?'<span class="sc">★ '+esc(a.p)+'/10</span>':'<span class="sc n">Sin puntaje</span>';
-    return '<article class="c"><div class="cv">'+img+'</div><div class="b"><h3>'+esc(a.t)+'</h3><p class="m">'+meta+'</p><div class="row"><span class="st '+esc(a.s)+'">'+esc(a.s)+'</span>'+sc+'</div><button type="button" data-id="'+esc(a.id)+'">Editar</button></div></article>';
+    return '<article class="c"><div class="cv">'+envolver(a,img)+'</div><div class="b"><h3>'+esc(a.t)+'</h3><p class="m">'+meta+'</p><div class="row"><span class="st '+esc(a.s)+'">'+esc(a.s)+'</span>'+sc+'</div><button type="button" data-id="'+esc(a.id)+'">Editar</button></div></article>';
   }).join(''):'<p class="empty">No hay animes con esos filtros. Cambia la búsqueda o agrega uno nuevo.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.cv img'),function(im){
     im.onerror=function(){var d=im.parentNode;d.textContent=im.alt.replace('Portada de ','')};
@@ -210,7 +199,7 @@ function openDlg(id){
   editId=id;
   var a=items.filter(function(x){return x.id===id})[0]||{t:'',g:'',s:'Pendiente',e:'',p:'',u:''};
   $('dt').textContent=id?'Editar anime':'Agregar anime';
-  $('t').value=a.t;$('g').value=a.g;$('s').value=a.s;$('e').value=a.e;$('p').value=a.p;$('u').value=a.u;
+  $('t').value=a.t;$('g').value=a.g;$('s').value=a.s;$('e').value=a.e;$('p').value=a.p;$('u').value=a.u;$('v').value=a.v||'';
   $('del').style.display=id?'':'none';
   $('dlg').showModal();$('t').focus();
 }
@@ -219,9 +208,9 @@ $('cx').onclick=function(){$('dlg').close()};
 $('grid').onclick=function(ev){var b=ev.target.closest('button[data-id]');if(b)openDlg(b.getAttribute('data-id'))};
 $('f').onsubmit=function(ev){
   ev.preventDefault();
-  var o={t:$('t').value.trim(),g:$('g').value.trim(),s:$('s').value,e:$('e').value,p:$('p').value,u:$('u').value.trim()};
+  var o={t:$('t').value.trim(),g:$('g').value.trim(),s:$('s').value,e:$('e').value,p:$('p').value,u:$('u').value.trim(),v:$('v').value.trim()};
   if(editId){items=items.map(function(a){return a.id===editId?Object.assign({},a,o):a})}
-  else{o.id='n'+Date.now();items.unshift(o)}
+  else{o.id='n'+Date.now();if(!o.v)delete o.v;items.unshift(o)}
   save();fillGenres();render();$('dlg').close();
 };
 $('del').onclick=function(){
@@ -254,7 +243,7 @@ $('file').onchange=function(){
     try{
       var a=JSON.parse(r.result);
       if(!Array.isArray(a)||a.some(function(x){return !x||!x.t}))throw 0;
-      var imp=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||''}});
+      var imp=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||'',v:x.v}});
       items=mezclar(items,imp);save();fillGenres();render();
     }catch(x){alert('No pude leer ese archivo. Usa uno exportado desde esta página.')}
   };
@@ -267,7 +256,7 @@ async function buscarUno(a){
   var base=a.t.replace(/\(.*?\)/g,'').trim();
   var c=[base];
   if(base.indexOf(':')>-1){base.split(':').forEach(function(p){p=p.trim();if(p&&c.indexOf(p)<0)c.push(p)})}
-  var query='query($s:String){Media(search:$s,type:ANIME){coverImage{large}episodes}}';
+  var query='query($s:String){Media(search:$s,type:ANIME){coverImage{large}episodes externalLinks{site url}}}';
   for(var i=0;i<c.length;i++){
     for(var n=0;n<3;n++){
       var r=await fetch('https://graphql.anilist.co',{
@@ -278,7 +267,7 @@ async function buscarUno(a){
       if(r.status===429){await pausa(3000);continue}
       var j=await r.json();
       var m=j&&j.data&&j.data.Media;
-      if(m)return {img:m.coverImage&&m.coverImage.large,eps:m.episodes};
+      if(m){var cr=(m.externalLinks||[]).filter(function(l){return l.site==='Crunchyroll'})[0];return {img:m.coverImage&&m.coverImage.large,eps:m.episodes,v:cr?cr.url:''}}
       break;
     }
     await pausa(500);
@@ -287,7 +276,7 @@ async function buscarUno(a){
 }
 async function buscarPortadas(){
   if(busy)return;
-  var falta=items.filter(function(a){return !a.u||a.e===''});
+  var falta=items.filter(function(a){return !a.u||a.e===''||a.v===undefined});
   if(!falta.length){$('msg').textContent='Todos los animes ya tienen portada y episodios.';return}
   busy=true;$('cov').disabled=true;
   var ok=0;
@@ -298,8 +287,10 @@ async function buscarPortadas(){
       if(d){
         if(!falta[i].u&&d.img)falta[i].u=d.img;
         if(falta[i].e===''&&d.eps)falta[i].e=d.eps;
+        if(falta[i].v===undefined)falta[i].v=d.v||'';
         ok++;save();render();
       }
+      if(!d&&falta[i].v===undefined)falta[i].v='';
       await pausa(800);
     }
     $('msg').textContent='Listo: encontré datos para '+ok+' de '+falta.length+'. Si alguna portada quedó mal, corrígela con Editar.';
@@ -323,7 +314,7 @@ $('sf').onsubmit=async function(ev){
   var t=$('st').value.trim(), y=parseInt($('sy').value,10);
   if(!t)return;
   $('sm').textContent='Buscando...';$('rl').innerHTML='';
-  var q='query($s:String,$a:FuzzyDateInt,$b:FuzzyDateInt){Page(perPage:12){media(search:$s,type:ANIME,startDate_greater:$a,startDate_lesser:$b,sort:POPULARITY_DESC){title{romaji english}seasonYear startDate{year}episodes format coverImage{large}genres}}}';
+  var q='query($s:String,$a:FuzzyDateInt,$b:FuzzyDateInt){Page(perPage:12){media(search:$s,type:ANIME,startDate_greater:$a,startDate_lesser:$b,sort:POPULARITY_DESC){title{romaji english}seasonYear startDate{year}episodes format coverImage{large}genres externalLinks{site url}}}}';
   var vars={s:t};
   if(y){vars.a=y*10000;vars.b=y*10000+1232}
   try{
@@ -348,7 +339,8 @@ $('rl').onclick=function(ev){
   var g=(a.genres&&a.genres[0])||'Sin género';
   var tr={'Action':'Acción','Adventure':'Aventura','Comedy':'Comedia','Drama':'Drama','Fantasy':'Fantasía','Horror':'Terror','Romance':'Romance','Sci-Fi':'Ciencia ficción','Slice of Life':'Slice of life','Mystery':'Misterio','Sports':'Deportes','Supernatural':'Sobrenatural','Psychological':'Psicológico','Mecha':'Mecha','Music':'Música'};
   g=tr[g]||g;
-  items.unshift({id:'n'+Date.now(),t:nom,g:g,s:'Pendiente',e:a.episodes||'',p:'',u:(a.coverImage&&a.coverImage.large)||''});
+  var cr=(a.externalLinks||[]).filter(function(l){return l.site==='Crunchyroll'})[0];
+  items.unshift({id:'n'+Date.now(),t:nom,g:g,s:'Pendiente',e:a.episodes||'',p:'',u:(a.coverImage&&a.coverImage.large)||'',v:cr?cr.url:''});
   save();fillGenres();render();
   b.outerHTML='<span class="m">Agregado</span>';
 };
@@ -361,7 +353,7 @@ function mezclar(a,b){
   a.concat(b).forEach(function(x){
     var k=String(x.t).toLowerCase();
     if(!m[k]){m[k]=Object.assign({},x);out.push(m[k])}
-    else{var y=m[k];['g','s','e','p','u'].forEach(function(f){if((y[f]===''||y[f]==null)&&x[f]!==''&&x[f]!=null)y[f]=x[f]})}
+    else{var y=m[k];['g','s','e','p','u','v'].forEach(function(f){if((y[f]===''||y[f]==null)&&x[f]!==''&&x[f]!=null)y[f]=x[f]})}
   });
   return out;
 }
@@ -399,7 +391,7 @@ if(FB_CONFIG.apiKey&&window.firebase){
       items=mezclar(remota,items);
       save();fillGenres();render();
       $('msg').textContent='Lista cargada desde tu cuenta.';
-      if(items.some(function(a){return !a.u}))buscarPortadas();
+      if(items.some(function(a){return !a.u||a.v===undefined}))buscarPortadas();
     }).catch(function(){$('msg').textContent='No pude leer tu lista de la nube. Revisa las reglas de Firestore.'});
   });
 }else{
@@ -409,7 +401,7 @@ if(FB_CONFIG.apiKey&&window.firebase){
 }
 
 fillGenres();render();
-if(items.some(function(a){return !a.u}))buscarPortadas();
+if(items.some(function(a){return !a.u||a.v===undefined}))buscarPortadas();
 </script>
 </body>
 </html>
