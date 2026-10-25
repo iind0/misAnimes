@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mis animes</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f766e">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{--bg:#edf1f6;--card:#fff;--tx:#10202e;--mu:#5b6b7a;--ac:#0f766e;--acx:#fff;--bd:#d5dde6;--in:#f6f9fc}
 :root[data-t=dark]{--bg:#0d1821;--card:#15242f;--tx:#e6eef5;--mu:#8ea1b1;--ac:#5eead4;--acx:#07211d;--bd:#26394a;--in:#0f1c26}
@@ -67,6 +70,16 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
 .w .b2{font-weight:600}
 .w .cr{background:#c2410c;color:#fff;border-color:#c2410c;font-weight:600}
 .w.n{font-size:.7rem;color:var(--mu)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.on{opacity:1}
+body.disc .cv.ad img{filter:blur(22px)}
+.opt{position:relative}
+.opt summary{cursor:pointer;border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:8px 14px;list-style:none}
+.opt .pn{position:absolute;right:0;top:44px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 14px;z-index:20;min-width:240px}
+.opt label{display:flex;align-items:center;gap:8px;margin:6px 0;color:var(--tx);font-size:.9rem}
+.opt input{width:auto}
+#stats{color:var(--mu);font-size:.85rem;margin:0 0 4px}
+.mcl{max-height:180px;overflow:auto;margin-top:8px;font-size:.85rem}
 @media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
 </style>
 </head>
@@ -84,6 +97,7 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
     <button id="sb" type="button">Buscar anime</button>
     <button id="login" type="button">Iniciar sesión con Google</button>
     <button id="fbk" type="button">Enlace de respaldo</button>
+    <details class="opt"><summary>Opciones</summary><div class="pn"><label><input type="checkbox" id="odisc"> Modo discreto (difuminar +18)</label><label><input type="checkbox" id="onof"> Mostrar sitios no oficiales</label></div></details>
     <button id="add" type="button" class="p">Agregar anime</button>
     <input id="file" type="file" accept="application/json" hidden>
   </div>
@@ -96,12 +110,15 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
       <option value="">Todos los estados</option>
       <option>Visto</option><option>Viendo</option><option>Pendiente</option>
     </select>
+    <select id="ord" aria-label="Ordenar"><option value="">Más recientes</option><option value="p">Mejor puntaje</option><option value="t">Título A-Z</option></select>
   </div>
+  <p id="stats"></p>
   <p id="cnt"></p>
   <p id="msg" class="sub" role="status"></p>
   <div id="grid" class="grid"></div>
 </main>
 
+<div id="toast" class="toast" role="status"></div>
 <dialog id="dlg">
   <form id="f">
     <h2 id="dt">Agregar anime</h2>
@@ -116,6 +133,9 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
     </div>
     <label>Link de la portada<input id="u" type="url" placeholder="https://..."></label>
     <label>Link para verlo (opcional)<input id="v" type="url" placeholder="https://..."></label>
+    <label>Episodio actual (si lo estás viendo)<input id="pr" type="number" min="0" step="1"></label>
+    <button type="button" id="mcb">Cambiar coincidencia</button>
+    <div id="mc" class="mcl"></div>
     <datalist id="gl"></datalist>
     <div class="acts">
       <button type="button" class="d" id="del">Eliminar</button>
@@ -182,7 +202,7 @@ function donde(a){
     return '<span'+h.cls+h.st+'>'+h.txt+'</span>';
   }).join('');
   if(w.length>4)out+='<span>+'+(w.length-4)+' más</span>';
-  if(a.ad||w.indexOf('Crunchyroll')<0){
+  if(NOF&&(a.ad||w.indexOf('Crunchyroll')<0)){
     var nomS=a.ad?'TioHentai':'TioAnime',t=colorDe(nomS),url=a.ad?tioHentai(a):'https://tioanime.com/anime/'+slugTio(a);
     out+='<a class="b2" style="background:'+t[1]+';color:'+t[2]+';border-color:'+t[1]+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="Abrir en '+nomS+'">'+nomS+'</a>';
   }
@@ -194,8 +214,8 @@ function tioHentai(a){return 'https://tiohentai.com/hentai/'+slugTio(a)}
 function limpiar(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim()}
 function destino(a){
   var u=seguro(a.v);
-  if(!u&&a.ad)u=tioHentai(a);
-  if(!u&&seguro(FALLBACK))u=FALLBACK.split('{titulo}').join(encodeURIComponent(a.t)).split('{romaji}').join(encodeURIComponent(limpiar(a.r||a.t))).split('{slug}').join(slugTio(a));
+  if(!u&&a.ad&&NOF)u=tioHentai(a);
+  if(!u&&seguro(FALLBACK)&&(NOF||!/tio(anime|hentai)\.com/i.test(FALLBACK)))u=FALLBACK.split('{titulo}').join(encodeURIComponent(a.t)).split('{romaji}').join(encodeURIComponent(limpiar(a.r||a.t))).split('{slug}').join(slugTio(a));
   return u;
 }
 function envolver(a,inner){
@@ -206,10 +226,17 @@ $('fbk').onclick=function(){
   var u=prompt('Pega la página a la que quieres ir cuando un anime no tenga link propio. Puedes usar {slug} (página directa en TioAnime), {romaji} o {titulo}. Ejemplo: https://www.google.com/search?q={titulo}+ver+online',FALLBACK);
   if(u===null)return;
   u=u.trim();
-  if(u&&!seguro(u)){alert('El enlace tiene que empezar con http:// o https://');return}
+  if(u&&!seguro(u)){toast('El enlace tiene que empezar con http:// o https://');return}
   FALLBACK=u;try{localStorage.setItem(FKEY,u)}catch(x){}
   render();
 };
+var tT=null;
+function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tT);tT=setTimeout(function(){t.classList.remove('on')},4500)}
+var DKEY='mis-animes-disc',NKEY='mis-animes-nof',DISC=false,NOF=true,matchSel=null;
+try{DISC=localStorage.getItem(DKEY)==='1';var nv=localStorage.getItem(NKEY);if(nv!==null)NOF=nv==='1'}catch(x){}
+function aplicarPrefs(){document.body.classList.toggle('disc',DISC);$('odisc').checked=DISC;$('onof').checked=NOF}
+$('odisc').onchange=function(){DISC=this.checked;try{localStorage.setItem(DKEY,DISC?'1':'0')}catch(x){}aplicarPrefs()};
+$('onof').onchange=function(){NOF=this.checked;try{localStorage.setItem(NKEY,NOF?'1':'0')}catch(x){}render()};
 function genres(){
   var set={};items.forEach(function(a){set[a.g]=1});
   return Object.keys(set).sort(function(a,b){return a.localeCompare(b,'es')});
@@ -220,17 +247,27 @@ function fillGenres(){
   $('fg').value=gs.indexOf(cur)>-1?cur:'';
   $('gl').innerHTML=gs.map(function(g){return '<option value="'+esc(g)+'">'}).join('');
 }
-function render(){
-  var q=$('q').value.trim().toLowerCase(), fg=$('fg').value, fs=$('fs').value;
-  var list=items.filter(function(a){
-    return (!q||a.t.toLowerCase().indexOf(q)>-1)&&(!fg||a.g===fg)&&(!fs||a.s===fs);
+function estadisticas(){
+  var v=0,vi=0,pe=0,sum=0,n=0,eps=0;
+  items.forEach(function(a){
+    if(a.s==='Visto'){v++;eps+=parseInt(a.e,10)||0}else if(a.s==='Viendo')vi++;else pe++;
+    var p=parseFloat(a.p);if(!isNaN(p)){sum+=p;n++}
   });
+  $('stats').textContent=v+' vistos · '+vi+' viendo · '+pe+' pendientes'+(n?' · promedio '+(sum/n).toFixed(1):'')+(eps?' · unas '+Math.round(eps*24/60)+' h vistas':'');
+}
+function render(){
+  var q=$('q').value.trim().toLowerCase(), fg=$('fg').value, fs=$('fs').value, od=$('ord').value;
+  var list=items.filter(function(a){return (!q||a.t.toLowerCase().indexOf(q)>-1)&&(!fg||a.g===fg)&&(!fs||a.s===fs)});
+  if(od==='p')list=list.slice().sort(function(a,b){var x=parseFloat(a.p),y=parseFloat(b.p);return (isNaN(y)?-1:y)-(isNaN(x)?-1:x)});
+  if(od==='t')list=list.slice().sort(function(a,b){return a.t.localeCompare(b.t,'es')});
   $('cnt').textContent=list.length+' de '+items.length+' animes';
+  estadisticas();
   $('grid').innerHTML=list.length?list.map(function(a){
     var img=a.u?'<img src="'+esc(a.u)+'" alt="Portada de '+esc(a.t)+'" loading="lazy" referrerpolicy="no-referrer">':esc(a.t);
     var meta=esc(a.g)+(a.e!==''&&a.e!=null?' · '+esc(a.e)+' episodios':'');
+    if(a.s==='Viendo'&&a.pr!==''&&a.pr!=null)meta+=' · ep. '+esc(a.pr)+(a.e?'/'+esc(a.e):'');
     var sc=(a.p!==''&&a.p!=null)?'<span class="sc">★ '+esc(a.p)+'/10</span>':'<span class="sc n">Sin puntaje</span>';
-    return '<article class="c"><div class="cv">'+envolver(a,img)+'</div><div class="b">'+donde(a)+'<h3>'+esc(a.t)+'</h3><p class="m">'+meta+'</p><div class="row"><span class="st '+esc(a.s)+'">'+esc(a.s)+'</span>'+sc+'</div><button type="button" data-id="'+esc(a.id)+'">Editar</button></div></article>';
+    return '<article class="c"><div class="cv'+(a.ad?' ad':'')+'">'+envolver(a,img)+'</div><div class="b">'+donde(a)+'<h3>'+esc(a.t)+'</h3><p class="m">'+meta+'</p><div class="row"><span class="st '+esc(a.s)+'">'+esc(a.s)+'</span>'+sc+'</div><button type="button" data-id="'+esc(a.id)+'">Editar</button></div></article>';
   }).join(''):'<p class="empty">No hay animes con esos filtros. Cambia la búsqueda o agrega uno nuevo.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.cv img'),function(im){
     im.onerror=function(){var d=im.parentNode;d.textContent=im.alt.replace('Portada de ','')};
@@ -240,7 +277,7 @@ function openDlg(id){
   editId=id;
   var a=items.filter(function(x){return x.id===id})[0]||{t:'',g:'',s:'Pendiente',e:'',p:'',u:''};
   $('dt').textContent=id?'Editar anime':'Agregar anime';
-  $('t').value=a.t;$('g').value=a.g;$('s').value=a.s;$('e').value=a.e;$('p').value=a.p;$('u').value=a.u;$('v').value=a.v||'';
+  $('t').value=a.t;$('g').value=a.g;$('s').value=a.s;$('e').value=a.e;$('p').value=a.p;$('u').value=a.u;$('v').value=a.v||'';$('pr').value=a.pr==null?'':a.pr;matchSel=null;$('mc').innerHTML='';
   $('del').style.display=id?'':'none';
   $('dlg').showModal();$('t').focus();
 }
@@ -249,7 +286,8 @@ $('cx').onclick=function(){$('dlg').close()};
 $('grid').onclick=function(ev){var b=ev.target.closest('button[data-id]');if(b)openDlg(b.getAttribute('data-id'))};
 $('f').onsubmit=function(ev){
   ev.preventDefault();
-  var o={t:$('t').value.trim(),g:$('g').value.trim(),s:$('s').value,e:$('e').value,p:$('p').value,u:$('u').value.trim(),v:$('v').value.trim()};
+  var o={t:$('t').value.trim(),g:$('g').value.trim(),s:$('s').value,e:$('e').value,p:$('p').value,u:$('u').value.trim(),v:$('v').value.trim(),pr:$('pr').value};
+  if(matchSel){o.r=matchSel.r;o.w=matchSel.w;o.ad=matchSel.ad;matchSel=null}
   if(editId){items=items.map(function(a){return a.id===editId?Object.assign({},a,o):a})}
   else{o.id='n'+Date.now();if(!o.v)delete o.v;items.unshift(o)}
   save();fillGenres();render();$('dlg').close();
@@ -257,7 +295,7 @@ $('f').onsubmit=function(ev){
 $('del').onclick=function(){
   if(confirm('¿Eliminar este anime de la lista?')){items=items.filter(function(a){return a.id!==editId});save();fillGenres();render();$('dlg').close()}
 };
-['q','fg','fs'].forEach(function(id){$(id).oninput=render});
+['q','fg','fs','ord'].forEach(function(id){$(id).oninput=render});
 
 function setTheme(t){
   document.documentElement.setAttribute('data-t',t);
@@ -273,7 +311,7 @@ $('theme').onclick=function(){setTheme(document.documentElement.getAttribute('da
 
 $('exp').onclick=function(){
   var blob=new Blob([JSON.stringify(items,null,2)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mis-animes.json';a.click();
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mis-animes.json';a.click();try{localStorage.setItem('mis-animes-resp',String(Date.now()))}catch(x){}
   setTimeout(function(){URL.revokeObjectURL(a.href)},1000);
 };
 $('imp').onclick=function(){$('file').click()};
@@ -284,9 +322,9 @@ $('file').onchange=function(){
     try{
       var a=JSON.parse(r.result);
       if(!Array.isArray(a)||a.some(function(x){return !x||!x.t}))throw 0;
-      var imp=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||'',v:x.v,r:x.r,w:x.w,ad:x.ad}});
+      var imp=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||'',v:x.v,r:x.r,w:x.w,ad:x.ad,pr:x.pr}});
       items=mezclar(items,imp);save();fillGenres();render();
-    }catch(x){alert('No pude leer ese archivo. Usa uno exportado desde esta página.')}
+    }catch(x){toast('No pude leer ese archivo. Usa uno exportado desde esta página.')}
   };
   r.readAsText(f);this.value='';
 };
@@ -435,6 +473,27 @@ $('rl').onclick=function(ev){
   b.outerHTML='<span class="m">Agregado</span>';
 };
 
+var FRAG='title{romaji english}startDate{year}episodes format coverImage{large}genres isAdult externalLinks{site url type}',mcache=[];
+$('mcb').onclick=async function(){
+  var t=$('t').value.trim();if(!t)return;
+  $('mc').textContent='Buscando...';
+  try{
+    var j=await anilist('query($s:String){Page(perPage:8){media(search:$s,type:ANIME){'+FRAG+'}}}',{s:t});
+    mcache=j&&j.data&&j.data.Page&&j.data.Page.media||[];
+    $('mc').innerHTML=mcache.length?mcache.map(function(m,i){
+      var n=m.title.english||m.title.romaji,y=m.startDate&&m.startDate.year||'';
+      return '<div class="rs">'+(m.coverImage&&m.coverImage.large?'<img src="'+esc(m.coverImage.large)+'" alt="">':'<div class="ph"></div>')+'<div class="i"><b>'+esc(n)+'</b><span>'+esc(y)+(m.episodes?' · '+m.episodes+' episodios':'')+'</span></div><button type="button" data-m="'+i+'">Usar este</button></div>';
+    }).join(''):'Sin resultados.';
+  }catch(x){$('mc').textContent='No pude conectarme. Intenta de nuevo en un momento.'}
+};
+$('mc').onclick=function(ev){
+  var b=ev.target.closest('button[data-m]');if(!b)return;
+  var m=mcache[+b.getAttribute('data-m')];if(!m)return;
+  var cr=(m.externalLinks||[]).filter(function(l){return l.site==='Crunchyroll'})[0];
+  matchSel={u:(m.coverImage&&m.coverImage.large)||'',e:m.episodes||'',v:cr?cr.url:'',r:m.title.romaji||'',w:sitios(m.externalLinks),ad:esAdulto(m)};
+  $('u').value=matchSel.u;$('e').value=matchSel.e;$('v').value=matchSel.v;
+  $('mc').textContent='Coincidencia elegida. Toca Guardar para aplicarla.';
+};
 $('cov').onclick=buscarPortadas;
 
 
@@ -443,12 +502,12 @@ function mezclar(a,b){
   a.concat(b).forEach(function(x){
     var k=String(x.t).toLowerCase();
     if(!m[k]){m[k]=Object.assign({},x);out.push(m[k])}
-    else{var y=m[k];['g','s','e','p','u','v','r','w','ad'].forEach(function(f){if((y[f]===''||y[f]==null)&&x[f]!==''&&x[f]!=null)y[f]=x[f]})}
+    else{var y=m[k];['g','s','e','p','u','v','r','w','ad','pr'].forEach(function(f){if((y[f]===''||y[f]==null)&&x[f]!==''&&x[f]!=null)y[f]=x[f]})}
   });
   return out;
 }
 var FB_CONFIG={apiKey:"AIzaSyDS9O0I0p5rXTCDk7ZN71ToJKV0KpSi5Hg",authDomain:"datamisanimes.firebaseapp.com",projectId:"datamisanimes",storageBucket:"datamisanimes.firebasestorage.app",messagingSenderId:"297219385556",appId:"1:297219385556:web:39e584a847603fe0eb3341"};
-var usuario=null,db=null,tNube=null;
+var usuario=null,db=null,tNube=null,unsub=null;
 function nube(){
   if(!usuario||!db)return;
   clearTimeout(tNube);
@@ -466,6 +525,7 @@ if(FB_CONFIG.apiKey&&window.firebase){
   var auth=firebase.auth();
   $('login').onclick=function(){
     if(usuario){
+      if(unsub){unsub();unsub=null}
       auth.signOut().then(function(){usuario=null;items=[];save();fillGenres();render();pintarLogin();$('msg').textContent='Sesión cerrada.'});
       return;
     }
@@ -475,21 +535,39 @@ if(FB_CONFIG.apiKey&&window.firebase){
     usuario=u;pintarLogin();
     if(!u)return;
     $('msg').textContent='Cargando tu lista...';
-    db.collection('listas').doc(u.uid).get().then(function(d){
+    var primera=true;
+    if(unsub)unsub();
+    unsub=db.collection('listas').doc(u.uid).onSnapshot(function(d){
+      if(d.metadata.hasPendingWrites)return;
       var remota=[];
       if(d.exists){try{remota=JSON.parse(d.data().data)||[]}catch(x){}}
-      items=mezclar(remota,items);
-      save();fillGenres();render();
-      $('msg').textContent='Lista cargada desde tu cuenta.';
-      if(items.some(function(a){return !a.u||a.v===undefined||a.r===undefined||a.w===undefined||a.ad===undefined}))buscarPortadas();
-    }).catch(function(){$('msg').textContent='No pude leer tu lista de la nube. Revisa las reglas de Firestore.'});
+      if(primera){
+        primera=false;
+        items=mezclar(remota,items);
+        save();fillGenres();render();
+        $('msg').textContent='Lista cargada desde tu cuenta.';
+        if(items.some(function(a){return !a.u||a.v===undefined||a.r===undefined||a.w===undefined||a.ad===undefined}))buscarPortadas();
+      }else if(d.exists&&d.data().data!==JSON.stringify(items)){
+        items=remota;
+        try{localStorage.setItem(KEY,JSON.stringify(items))}catch(x){}
+        fillGenres();render();
+        $('msg').textContent='Se actualizó desde otro dispositivo.';
+      }
+    },function(){$('msg').textContent='No pude leer tu lista de la nube. Revisa las reglas de Firestore.'});
   });
 }else{
   $('login').onclick=function(){
-    alert(window.firebase?'Falta pegar la configuración de Firebase en el archivo (FB_CONFIG).':'No pude cargar Firebase. Revisa tu internet.');
+    toast(window.firebase?'Falta pegar la configuración de Firebase en el archivo (FB_CONFIG).':'No pude cargar Firebase. Revisa tu internet.');
   };
 }
 
+aplicarPrefs();
+setTimeout(function(){
+  if(usuario||!items.length)return;
+  var u=0;try{u=parseInt(localStorage.getItem('mis-animes-resp'),10)||0}catch(x){}
+  if(Date.now()-u>14*864e5)toast('Hace tiempo que no exportas un respaldo. Usa Exportar para guardar tu lista.');
+},5000);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
 fillGenres();render();
 if(items.some(function(a){return !a.u||a.v===undefined||a.r===undefined||a.w===undefined||a.ad===undefined}))buscarPortadas();
 </script>
