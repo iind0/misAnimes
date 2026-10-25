@@ -284,36 +284,50 @@ async function buscarUno(a){
       if(m){var cr=(m.externalLinks||[]).filter(function(l){return l.site==='Crunchyroll'})[0];return {img:m.coverImage&&m.coverImage.large,eps:m.episodes,v:cr?cr.url:'',r:m.title&&m.title.romaji||'',w:sitios(m.externalLinks)}}
       break;
     }
-    await pausa(500);
+    await pausa(1500);
   }
   return null;
 }
+function vivo(a){var k=String(a.t).toLowerCase();return items.filter(function(x){return String(x.t).toLowerCase()===k})[0]||a}
+function sinChequear(){return items.some(function(a){return a.v===undefined||a.r===undefined||a.w===undefined})}
 async function buscarPortadas(){
   if(busy)return;
   var falta=items.filter(function(a){return !a.u||a.e===''||a.v===undefined||a.r===undefined||a.w===undefined});
   if(!falta.length){$('msg').textContent='Todos los animes ya tienen portada y episodios.';return}
   busy=true;$('cov').disabled=true;
-  var ok=0;
+  var ok=0,fallo=false;
   try{
     for(var i=0;i<falta.length;i++){
       $('msg').textContent='Buscando '+(i+1)+' de '+falta.length+': '+falta[i].t;
-      var d=await buscarUno(falta[i]);
-      if(d){
-        if(!falta[i].u&&d.img)falta[i].u=d.img;
-        if(falta[i].e===''&&d.eps)falta[i].e=d.eps;
-        if(falta[i].v===undefined)falta[i].v=d.v||'';
-        if(falta[i].r===undefined)falta[i].r=d.r||'';
-        if(falta[i].w===undefined)falta[i].w=d.w||[];
-        ok++;save();render();
+      var d,intentos=0;
+      while(true){
+        try{d=await buscarUno(falta[i]);break}
+        catch(e){
+          intentos++;
+          if(intentos>=3)throw e;
+          for(var seg=65;seg>0;seg--){$('msg').textContent='La base de datos pidió ir más lento. Reanudo en '+seg+' s...';await pausa(1000)}
+        }
       }
-      if(!d&&falta[i].v===undefined)falta[i].v='';
-      if(!d&&falta[i].r===undefined)falta[i].r='';
-      if(!d&&falta[i].w===undefined)falta[i].w=[];
-      await pausa(800);
+      var it=vivo(falta[i]);
+      if(d){
+        if(!it.u&&d.img)it.u=d.img;
+        if(it.e===''&&d.eps)it.e=d.eps;
+        if(it.v===undefined)it.v=d.v||'';
+        if(it.r===undefined)it.r=d.r||'';
+        if(it.w===undefined)it.w=d.w||[];
+        ok++;
+      }else{
+        if(it.v===undefined)it.v='';
+        if(it.r===undefined)it.r='';
+        if(it.w===undefined)it.w=[];
+      }
+      save();render();
+      await pausa(2200);
     }
     $('msg').textContent='Listo: encontré datos para '+ok+' de '+falta.length+'. Si alguna portada quedó mal, corrígela con Editar.';
-  }catch(x){$('msg').textContent='No pude conectarme a la base de datos. Revisa tu internet e intenta de nuevo.'}
+  }catch(x){fallo=true;$('msg').textContent='La base de datos sigue sin responder. Lo que ya encontré quedó guardado. Espera unos minutos y toca Buscar portadas para seguir.'}
   busy=false;$('cov').disabled=false;
+  if(!fallo&&sinChequear())buscarPortadas();
 }
 
 var rcache=[];
