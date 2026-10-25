@@ -57,6 +57,8 @@ dialog input,dialog select{width:100%;background:var(--in);border:1px solid var(
 details.fl{margin-top:10px}
 details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
 .sr{display:flex;gap:8px}
+.ck{display:flex;align-items:center;gap:8px}
+.ck input{width:auto!important;margin:0!important}
 .sr input{flex:1}
 .cv a{display:block;width:100%;height:100%;color:inherit;text-decoration:none;cursor:pointer}
 .w{display:flex;flex-wrap:wrap;gap:4px;margin:0}
@@ -128,12 +130,17 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
   <h2>Buscar anime</h2>
   <form id="sf">
     <div class="sr">
-      <input id="st" placeholder="Escribe un título" aria-label="Título a buscar" required>
+      <input id="st" placeholder="Escribe un título (opcional)" aria-label="Título a buscar">
       <button type="submit" class="p">Buscar</button>
     </div>
     <details class="fl">
       <summary>Filtros</summary>
+      <label>Género<select id="sg"></select></label>
+      <label>Etiqueta<select id="stg"></select></label>
       <label>Año de estreno<input id="sy" type="number" min="1960" max="2100" placeholder="Ejemplo: 2000"></label>
+      <label>Ordenar por<select id="so"><option value="POPULARITY_DESC">Más populares</option><option value="SCORE_DESC">Mejor puntuados</option><option value="START_DATE_DESC">Más recientes</option><option value="TRENDING_DESC">En tendencia</option></select></label>
+      <label class="ck"><input id="sa" type="checkbox"> Incluir contenido +18</label>
+      <label class="ck"><input id="sx" type="checkbox"> Solo +18</label>
     </details>
   </form>
   <p id="sm" class="sub" role="status"></p>
@@ -361,16 +368,45 @@ async function anilist(q,vars){
   }
   return null;
 }
-$('sb').onclick=function(){$('sdlg').showModal();$('st').focus()};
+var GEN_ES={'Action':'Acción','Adventure':'Aventura','Comedy':'Comedia','Drama':'Drama','Ecchi':'Ecchi','Fantasy':'Fantasía','Horror':'Terror','Mahou Shoujo':'Chicas mágicas','Mecha':'Mecha','Music':'Música','Mystery':'Misterio','Psychological':'Psicológico','Romance':'Romance','Sci-Fi':'Ciencia ficción','Slice of Life':'Recuentos de la vida','Sports':'Deportes','Supernatural':'Sobrenatural','Thriller':'Suspenso','Hentai':'Hentai (+18)'};
+var TAG_ES={'Isekai':'Isekai','Reincarnation':'Reencarnación','Harem':'Harem','Magic':'Magia','School':'Escolar','Military':'Militar','Virtual World':'Mundo virtual','Villainess':'Villana','Super Power':'Superpoderes','Martial Arts':'Artes marciales','Demons':'Demonios','Vampire':'Vampiros','Samurai':'Samuráis','Time Manipulation':'Manipulación del tiempo','Post-Apocalyptic':'Postapocalíptico','Survival':'Supervivencia','Video Games':'Videojuegos','Cooking':'Cocina','Swordplay':'Espadas','Gore':'Gore'};
+function llenarSel(id,lista,mapa,vacio){
+  var o='<option value="">'+vacio+'</option>';
+  lista.forEach(function(n){o+='<option value="'+esc(n)+'">'+esc(mapa[n]||n)+'</option>'});
+  $(id).innerHTML=o;
+}
+llenarSel('sg',Object.keys(GEN_ES),GEN_ES,'Cualquier género');
+llenarSel('stg',Object.keys(TAG_ES),TAG_ES,'Cualquier etiqueta (isekai, harem...)');
+var cargoCat=false;
+async function cargarCategorias(){
+  if(cargoCat)return;
+  cargoCat=true;
+  try{
+    var j=await anilist('query{GenreCollection MediaTagCollection{name isAdult}}',{});
+    var gs=j&&j.data&&j.data.GenreCollection,tg=j&&j.data&&j.data.MediaTagCollection;
+    if(gs&&gs.length){var vg=$('sg').value;llenarSel('sg',gs,GEN_ES,'Cualquier género');$('sg').value=vg}
+    if(tg&&tg.length){
+      var vt=$('stg').value;
+      var nombres=tg.filter(function(x){return !x.isAdult}).map(function(x){return x.name}).sort(function(a,b){return (TAG_ES[a]||a).localeCompare(TAG_ES[b]||b,'es')});
+      llenarSel('stg',nombres,TAG_ES,'Cualquier etiqueta (isekai, harem...)');$('stg').value=vt;
+    }
+  }catch(x){cargoCat=false}
+}
+$('sb').onclick=function(){$('sdlg').showModal();$('st').focus();cargarCategorias()};
+$('sx').onchange=function(){$('sa').checked=this.checked;$('sa').disabled=this.checked};
 $('sx').onclick=function(){$('sdlg').close()};
 $('sf').onsubmit=async function(ev){
   ev.preventDefault();
-  var t=$('st').value.trim(), y=parseInt($('sy').value,10);
-  if(!t)return;
+  var t=$('st').value.trim(),y=parseInt($('sy').value,10),g=$('sg').value,tg=$('stg').value,adu=$('sa').checked||g==='Hentai';
+  if(!t&&!y&&!g&&!tg){$('sm').textContent='Escribe un título o elige algún filtro.';return}
   $('sm').textContent='Buscando...';$('rl').innerHTML='';
-  var q='query($s:String,$a:FuzzyDateInt,$b:FuzzyDateInt){Page(perPage:12){media(search:$s,type:ANIME,startDate_greater:$a,startDate_lesser:$b,sort:POPULARITY_DESC){title{romaji english}seasonYear startDate{year}episodes format coverImage{large}genres isAdult externalLinks{site url type}}}}';
-  var vars={s:t};
-  if(y){vars.a=y*10000;vars.b=y*10000+1232}
+  var dd=['$o:[MediaSort]'],ar=['type:ANIME','sort:$o'],vars={o:[$('so').value]};
+  if(t){dd.push('$s:String');ar.push('search:$s');vars.s=t}
+  if(y){dd.push('$a:FuzzyDateInt','$b:FuzzyDateInt');ar.push('startDate_greater:$a','startDate_lesser:$b');vars.a=y*10000;vars.b=y*10000+1232}
+  if(g){dd.push('$g:[String]');ar.push('genre_in:$g');vars.g=[g]}
+  if(tg){dd.push('$tg:[String]');ar.push('tag_in:$tg');vars.tg=[tg]}
+  if($('sx').checked)ar.push('isAdult:true');else if(!adu)ar.push('isAdult:false');
+  var q='query('+dd.join(',')+'){Page(perPage:12){media('+ar.join(',')+'){title{romaji english}seasonYear startDate{year}episodes format coverImage{large}genres isAdult externalLinks{site url type}}}}';
   try{
     var j=await anilist(q,vars);
     var m=j&&j.data&&j.data.Page&&j.data.Page.media||[];
