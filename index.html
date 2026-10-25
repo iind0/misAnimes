@@ -149,8 +149,8 @@ var items=load(), editId=null;
 var $=function(id){return document.getElementById(id)};
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 
-var FKEY='mis-animes-respaldo',FALLBACK='';
-try{FALLBACK=localStorage.getItem(FKEY)||''}catch(x){}
+var FKEY='mis-animes-respaldo',FALLBACK='https://tioanime.com/directorio?q={titulo}';
+try{var fv=localStorage.getItem(FKEY);if(fv!==null)FALLBACK=fv}catch(x){}
 function seguro(u){return /^https?:\/\//i.test(u||'')?u:''}
 function destino(a){
   var u=seguro(a.v);
