@@ -62,6 +62,7 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
 .w{display:flex;flex-wrap:wrap;gap:4px;margin:0}
 .w span{font-size:.7rem;padding:1px 7px;border-radius:99px;border:1px solid var(--bd);color:var(--mu)}
 .w a{font-size:.7rem;padding:1px 7px;border-radius:99px;text-decoration:none}
+.w .b2{font-weight:600}
 .w .cr{background:#c2410c;color:#fff;border-color:#c2410c;font-weight:600}
 .w.n{font-size:.7rem;color:var(--mu)}
 @media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
@@ -158,17 +159,27 @@ var FKEY='mis-animes-respaldo',FALLBACK='https://tioanime.com/directorio?q={roma
 try{var fv=localStorage.getItem(FKEY);if(fv!==null)FALLBACK=fv}catch(x){}
 function seguro(u){return /^https?:\/\//i.test(u||'')?u:''}
 function sitios(l){var o=[];(l||[]).forEach(function(x){if(x.type==='STREAMING'&&o.indexOf(x.site)<0)o.push(x.site)});return o}
+var COL=[['crunchyroll','#f47521','#1b1209'],['netflix','#e50914','#ffffff'],['youtube','#e60000','#ffffff'],['amazon','#0a7cc2','#ffffff'],['prime','#0a7cc2','#ffffff'],['disney','#113ccf','#ffffff'],['hulu','#1ce783','#0b1a12'],['hidive','#00baff','#06202b'],['funimation','#410099','#ffffff'],['hbo','#5822b4','#ffffff'],['max','#3b2bd6','#ffffff'],['tubi','#fa382f','#ffffff'],['bilibili','#00a1d6','#ffffff'],['tioanime','#7c3aed','#ffffff']];
+function colorDe(x){var k=String(x).toLowerCase();for(var i=0;i<COL.length;i++){if(k.indexOf(COL[i][0])>-1)return COL[i]}return null}
+function chip(x,tick,c){
+  var st=c?' style="background:'+c[1]+';color:'+c[2]+';border-color:'+c[1]+'"':'';
+  return {st:st,cls:c?' class="b2"':'',txt:(tick?'✓ ':'')+esc(x)};
+}
 function donde(a){
   if(!Array.isArray(a.w))return '';
-  if(!a.w.length)return '<p class="w n">Sin info de dónde verlo</p>';
   var w=a.w.slice().sort(function(x,y){return (y==='Crunchyroll')-(x==='Crunchyroll')});
   var cu=seguro(a.v),esCr=/crunchyroll\.com/i.test(cu);
-  var mostrar=w.slice(0,4).map(function(x){
-    if(x==='Crunchyroll'&&esCr)return '<a class="cr" href="'+esc(cu)+'" target="_blank" rel="noopener noreferrer" title="Abrir en Crunchyroll">✓ Crunchyroll</a>';
-    return '<span'+(x==='Crunchyroll'?' class="cr"':'')+'>'+(x==='Crunchyroll'?'✓ ':'')+esc(x)+'</span>';
+  var out=w.slice(0,4).map(function(x){
+    var h=chip(x,x==='Crunchyroll',colorDe(x));
+    if(x==='Crunchyroll'&&esCr)return '<a class="b2"'+h.st+' href="'+esc(cu)+'" target="_blank" rel="noopener noreferrer" title="Abrir en Crunchyroll">'+h.txt+'</a>';
+    return '<span'+h.cls+h.st+'>'+h.txt+'</span>';
   }).join('');
-  if(w.length>4)mostrar+='<span>+'+(w.length-4)+' más</span>';
-  return '<p class="w">'+mostrar+'</p>';
+  if(w.length>4)out+='<span>+'+(w.length-4)+' más</span>';
+  if(w.indexOf('Crunchyroll')<0){
+    var t=colorDe('tioanime'),url='https://tioanime.com/directorio?q='+encodeURIComponent(limpiar(a.r||a.t));
+    out+='<a class="b2" style="background:'+t[1]+';color:'+t[2]+';border-color:'+t[1]+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="Buscar en TioAnime">TioAnime</a>';
+  }
+  return '<p class="w">'+out+'</p>';
 }
 function limpiar(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim()}
 function destino(a){
