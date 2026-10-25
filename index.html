@@ -46,6 +46,18 @@ dialog input,dialog select{width:100%;background:var(--in);border:1px solid var(
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .acts .d{margin-right:auto;color:#c0392b}
+
+.rs{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--bd)}
+.rs img,.rs .ph{width:44px;height:64px;object-fit:cover;border-radius:6px;background:var(--in);flex:none}
+.rs .i{flex:1;min-width:0}
+.rs .i b{display:block;font-size:.9rem;line-height:1.25}
+.rs .i span{color:var(--mu);font-size:.8rem}
+.rs button{padding:5px 10px;font-size:.8rem}
+#rl{max-height:50vh;overflow:auto;margin-top:10px}
+details.fl{margin-top:10px}
+details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
+.sr{display:flex;gap:8px}
+.sr input{flex:1}
 @media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
 </style>
 </head>
@@ -60,6 +72,7 @@ dialog input,dialog select{width:100%;background:var(--in);border:1px solid var(
     <button id="exp" type="button">Exportar</button>
     <button id="imp" type="button">Importar</button>
     <button id="cov" type="button">Buscar portadas</button>
+    <button id="sb" type="button">Buscar anime</button>
     <button id="add" type="button" class="p">Agregar anime</button>
     <input id="file" type="file" accept="application/json" hidden>
   </div>
@@ -100,21 +113,29 @@ dialog input,dialog select{width:100%;background:var(--in);border:1px solid var(
   </form>
 </dialog>
 
+
+<dialog id="sdlg">
+  <h2>Buscar anime</h2>
+  <form id="sf">
+    <div class="sr">
+      <input id="st" placeholder="Escribe un título" aria-label="Título a buscar" required>
+      <button type="submit" class="p">Buscar</button>
+    </div>
+    <details class="fl">
+      <summary>Filtros</summary>
+      <label>Año de estreno<input id="sy" type="number" min="1960" max="2100" placeholder="Ejemplo: 2000"></label>
+    </details>
+  </form>
+  <p id="sm" class="sub" role="status"></p>
+  <div id="rl"></div>
+  <div class="acts"><button type="button" id="sx">Cerrar</button></div>
+</dialog>
+
 <script>
 var KEY='mis-animes-v1', TKEY='mis-animes-tema';
-function seed(){
-  var vistos=['Mushoku Tensei: Jobless Reincarnation','Re:Zero - Starting Life in Another World','The Eminence in Shadow','KonoSuba!','Solo Leveling','Ascendance of a Bookworm','Overlord','That Time I Got Reincarnated as a Slime','No Game No Life','Shangri-La Frontier','Youjo Senki: Saga of Tanya the Evil','Uncle from Another World','Grimgar, Fantasy and Ash','Drifters','The Executioner and Her Way of Life','Cautious Hero','Tsukimichi: Moonlit Fantasy','Re:Creators',"The World's Finest Assassin Gets Reincarnated in Another World as an Aristocrat",'Gate: Thus the JSDF Fought There!','The Faraway Paladin','Kemono Michi: Rise Up','The 8th Son? Are You Kidding Me?','By the Grace of the Gods','Skeleton Knight in Another World'];
-  var pend=['Escaflowne','Fushigi Yuugi','Inuyasha','The Twelve Kingdoms','Magic Knight Rayearth','The Familiar of Zero'];
-  var l=[],i=0;
-  vistos.forEach(function(t){l.push({id:'s'+(i++),t:t,g:'Isekai',s:'Visto',e:'',p:'',u:''})});
-  l.push({id:'s'+(i++),t:"Banished from the Hero's Party",g:'Fantasía',s:'Visto',e:'',p:'',u:''});
-  l.push({id:'s'+(i++),t:'Vivy: Fluorite Eye\'s Song',g:'Ciencia ficción',s:'Visto',e:'',p:'',u:''});
-  pend.forEach(function(t){l.push({id:'s'+(i++),t:t,g:'Isekai',s:'Pendiente',e:'',p:'',u:''})});
-  return l;
-}
 function load(){
   try{var r=localStorage.getItem(KEY);if(r){var a=JSON.parse(r);if(Array.isArray(a))return a}}catch(x){}
-  return seed();
+  return [];
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(x){}}
 var items=load(), editId=null;
@@ -205,19 +226,24 @@ $('file').onchange=function(){
 var busy=false;
 function pausa(ms){return new Promise(function(r){setTimeout(r,ms)})}
 async function buscarUno(a){
-  var q=a.t.replace(/\(.*?\)/g,'').trim();
+  var base=a.t.replace(/\(.*?\)/g,'').trim();
+  var c=[base];
+  if(base.indexOf(':')>-1){base.split(':').forEach(function(p){p=p.trim();if(p&&c.indexOf(p)<0)c.push(p)})}
   var query='query($s:String){Media(search:$s,type:ANIME){coverImage{large}episodes}}';
-  for(var n=0;n<3;n++){
-    var r=await fetch('https://graphql.anilist.co',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body:JSON.stringify({query:query,variables:{s:q}})
-    });
-    if(r.status===429){await pausa(3000);continue}
-    var j=await r.json();
-    var m=j&&j.data&&j.data.Media;
-    if(!m)return null;
-    return {img:m.coverImage&&m.coverImage.large,eps:m.episodes};
+  for(var i=0;i<c.length;i++){
+    for(var n=0;n<3;n++){
+      var r=await fetch('https://graphql.anilist.co',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({query:query,variables:{s:c[i]}})
+      });
+      if(r.status===429){await pausa(3000);continue}
+      var j=await r.json();
+      var m=j&&j.data&&j.data.Media;
+      if(m)return {img:m.coverImage&&m.coverImage.large,eps:m.episodes};
+      break;
+    }
+    await pausa(500);
   }
   return null;
 }
@@ -242,6 +268,53 @@ async function buscarPortadas(){
   }catch(x){$('msg').textContent='No pude conectarme a la base de datos. Revisa tu internet e intenta de nuevo.'}
   busy=false;$('cov').disabled=false;
 }
+
+var rcache=[];
+async function anilist(q,vars){
+  for(var n=0;n<3;n++){
+    var r=await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({query:q,variables:vars})});
+    if(r.status===429){await pausa(3000);continue}
+    return await r.json();
+  }
+  return null;
+}
+$('sb').onclick=function(){$('sdlg').showModal();$('st').focus()};
+$('sx').onclick=function(){$('sdlg').close()};
+$('sf').onsubmit=async function(ev){
+  ev.preventDefault();
+  var t=$('st').value.trim(), y=parseInt($('sy').value,10);
+  if(!t)return;
+  $('sm').textContent='Buscando...';$('rl').innerHTML='';
+  var q='query($s:String,$a:FuzzyDateInt,$b:FuzzyDateInt){Page(perPage:12){media(search:$s,type:ANIME,startDate_greater:$a,startDate_lesser:$b,sort:POPULARITY_DESC){title{romaji english}seasonYear startDate{year}episodes format coverImage{large}genres}}}';
+  var vars={s:t};
+  if(y){vars.a=y*10000;vars.b=y*10000+1232}
+  try{
+    var j=await anilist(q,vars);
+    var m=j&&j.data&&j.data.Page&&j.data.Page.media||[];
+    rcache=m;
+    if(!m.length){$('sm').textContent='No encontré resultados. Prueba con otro título o quita el año.';return}
+    $('sm').textContent=m.length+' resultados';
+    $('rl').innerHTML=m.map(function(a,i){
+      var nom=a.title.english||a.title.romaji;
+      var ano=a.startDate&&a.startDate.year||'';
+      var ya=items.some(function(x){return x.t.toLowerCase()===nom.toLowerCase()});
+      var img=a.coverImage&&a.coverImage.large?'<img src="'+esc(a.coverImage.large)+'" alt="">':'<div class="ph"></div>';
+      return '<div class="rs">'+img+'<div class="i"><b>'+esc(nom)+'</b><span>'+(a.title.romaji&&a.title.romaji!==nom?esc(a.title.romaji)+' · ':'')+esc(ano)+(a.episodes?' · '+a.episodes+' episodios':'')+(a.format?' · '+esc(a.format):'')+'</span></div>'+(ya?'<span class="m">Ya está</span>':'<button type="button" data-r="'+i+'">Agregar</button>')+'</div>';
+    }).join('');
+  }catch(x){$('sm').textContent='No pude conectarme a la base de datos. Revisa tu internet e intenta de nuevo.'}
+};
+$('rl').onclick=function(ev){
+  var b=ev.target.closest('button[data-r]');if(!b)return;
+  var a=rcache[+b.getAttribute('data-r')];if(!a)return;
+  var nom=a.title.english||a.title.romaji;
+  var g=(a.genres&&a.genres[0])||'Sin género';
+  var tr={'Action':'Acción','Adventure':'Aventura','Comedy':'Comedia','Drama':'Drama','Fantasy':'Fantasía','Horror':'Terror','Romance':'Romance','Sci-Fi':'Ciencia ficción','Slice of Life':'Slice of life','Mystery':'Misterio','Sports':'Deportes','Supernatural':'Sobrenatural','Psychological':'Psicológico','Mecha':'Mecha','Music':'Música'};
+  g=tr[g]||g;
+  items.unshift({id:'n'+Date.now(),t:nom,g:g,s:'Pendiente',e:a.episodes||'',p:'',u:(a.coverImage&&a.coverImage.large)||''});
+  save();fillGenres();render();
+  b.outerHTML='<span class="m">Agregado</span>';
+};
+
 $('cov').onclick=buscarPortadas;
 
 fillGenres();render();
