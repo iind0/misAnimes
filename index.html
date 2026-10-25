@@ -155,11 +155,11 @@ var items=load(), editId=null;
 var $=function(id){return document.getElementById(id)};
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 
-var FKEY='mis-animes-respaldo',FALLBACK='https://tioanime.com/directorio?q={romaji}';
+var FKEY='mis-animes-respaldo',FALLBACK='https://tioanime.com/anime/{slug}';
 try{var fv=localStorage.getItem(FKEY);if(fv!==null)FALLBACK=fv}catch(x){}
 function seguro(u){return /^https?:\/\//i.test(u||'')?u:''}
 function sitios(l){var o=[];(l||[]).forEach(function(x){if(x.type==='STREAMING'&&o.indexOf(x.site)<0)o.push(x.site)});return o}
-var COL=[['crunchyroll','#f47521','#1b1209'],['netflix','#e50914','#ffffff'],['youtube','#e60000','#ffffff'],['amazon','#0a7cc2','#ffffff'],['prime','#0a7cc2','#ffffff'],['disney','#113ccf','#ffffff'],['hulu','#1ce783','#0b1a12'],['hidive','#00baff','#06202b'],['funimation','#410099','#ffffff'],['hbo','#5822b4','#ffffff'],['max','#3b2bd6','#ffffff'],['tubi','#fa382f','#ffffff'],['bilibili','#00a1d6','#ffffff'],['tioanime','#7c3aed','#ffffff']];
+var COL=[['crunchyroll','#f47521','#1b1209'],['netflix','#e50914','#ffffff'],['youtube','#e60000','#ffffff'],['amazon','#0a7cc2','#ffffff'],['prime','#0a7cc2','#ffffff'],['disney','#113ccf','#ffffff'],['hulu','#1ce783','#0b1a12'],['hidive','#00baff','#06202b'],['funimation','#410099','#ffffff'],['hbo','#5822b4','#ffffff'],['max','#3b2bd6','#ffffff'],['tubi','#fa382f','#ffffff'],['bilibili','#00a1d6','#ffffff'],['tioanime','#7c3aed','#ffffff'],['tiohentai','#be185d','#ffffff']];
 function colorDe(x){var k=String(x).toLowerCase();for(var i=0;i<COL.length;i++){if(k.indexOf(COL[i][0])>-1)return COL[i]}return null}
 function chip(x,tick,c){
   var st=c?' style="background:'+c[1]+';color:'+c[2]+';border-color:'+c[1]+'"':'';
@@ -175,16 +175,20 @@ function donde(a){
     return '<span'+h.cls+h.st+'>'+h.txt+'</span>';
   }).join('');
   if(w.length>4)out+='<span>+'+(w.length-4)+' más</span>';
-  if(w.indexOf('Crunchyroll')<0){
-    var t=colorDe('tioanime'),url='https://tioanime.com/directorio?q='+encodeURIComponent(limpiar(a.r||a.t));
-    out+='<a class="b2" style="background:'+t[1]+';color:'+t[2]+';border-color:'+t[1]+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="Buscar en TioAnime">TioAnime</a>';
+  if(a.ad||w.indexOf('Crunchyroll')<0){
+    var nomS=a.ad?'TioHentai':'TioAnime',t=colorDe(nomS),url=a.ad?tioHentai(a):'https://tioanime.com/anime/'+slugTio(a);
+    out+='<a class="b2" style="background:'+t[1]+';color:'+t[2]+';border-color:'+t[1]+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="Abrir en '+nomS+'">'+nomS+'</a>';
   }
   return '<p class="w">'+out+'</p>';
 }
+function slugTio(a){return String(a.r||a.t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]+/g,'').replace(/\s+/g,' ').trim().replace(/ /g,'-')}
+function esAdulto(m){return !!(m&&(m.isAdult||(m.genres||[]).indexOf('Hentai')>-1))}
+function tioHentai(a){return 'https://tiohentai.com/hentai/'+slugTio(a)}
 function limpiar(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim()}
 function destino(a){
   var u=seguro(a.v);
-  if(!u&&seguro(FALLBACK))u=FALLBACK.split('{titulo}').join(encodeURIComponent(a.t)).split('{romaji}').join(encodeURIComponent(limpiar(a.r||a.t)));
+  if(!u&&a.ad)u=tioHentai(a);
+  if(!u&&seguro(FALLBACK))u=FALLBACK.split('{titulo}').join(encodeURIComponent(a.t)).split('{romaji}').join(encodeURIComponent(limpiar(a.r||a.t))).split('{slug}').join(slugTio(a));
   return u;
 }
 function envolver(a,inner){
@@ -192,7 +196,7 @@ function envolver(a,inner){
   return u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" title="Abrir enlace para verlo">'+inner+'</a>':inner;
 }
 $('fbk').onclick=function(){
-  var u=prompt('Pega la página a la que quieres ir cuando un anime no tenga link propio. Puedes usar {romaji} (título japonés sin tildes) o {titulo} (el nombre de tu lista). Ejemplo: https://www.google.com/search?q={titulo}+ver+online',FALLBACK);
+  var u=prompt('Pega la página a la que quieres ir cuando un anime no tenga link propio. Puedes usar {slug} (página directa en TioAnime), {romaji} o {titulo}. Ejemplo: https://www.google.com/search?q={titulo}+ver+online',FALLBACK);
   if(u===null)return;
   u=u.trim();
   if(u&&!seguro(u)){alert('El enlace tiene que empezar con http:// o https://');return}
@@ -273,7 +277,7 @@ $('file').onchange=function(){
     try{
       var a=JSON.parse(r.result);
       if(!Array.isArray(a)||a.some(function(x){return !x||!x.t}))throw 0;
-      var imp=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||'',v:x.v,r:x.r,w:x.w}});
+      var imp=a.map(function(x,i){return {id:x.id||('i'+i+Date.now()),t:String(x.t),g:x.g||'Sin género',s:x.s||'Pendiente',e:x.e==null?'':x.e,p:x.p==null?'':x.p,u:x.u||'',v:x.v,r:x.r,w:x.w,ad:x.ad}});
       items=mezclar(items,imp);save();fillGenres();render();
     }catch(x){alert('No pude leer ese archivo. Usa uno exportado desde esta página.')}
   };
@@ -286,7 +290,7 @@ async function buscarUno(a){
   var base=a.t.replace(/\(.*?\)/g,'').trim();
   var c=[base];
   if(base.indexOf(':')>-1){base.split(':').forEach(function(p){p=p.trim();if(p&&c.indexOf(p)<0)c.push(p)})}
-  var query='query($s:String){Media(search:$s,type:ANIME){coverImage{large}episodes title{romaji} externalLinks{site url type}}}';
+  var query='query($s:String){Media(search:$s,type:ANIME){coverImage{large}episodes title{romaji} isAdult genres externalLinks{site url type}}}';
   for(var i=0;i<c.length;i++){
     for(var n=0;n<3;n++){
       var r=await fetch('https://graphql.anilist.co',{
@@ -297,7 +301,7 @@ async function buscarUno(a){
       if(r.status===429){await pausa(3000);continue}
       var j=await r.json();
       var m=j&&j.data&&j.data.Media;
-      if(m){var cr=(m.externalLinks||[]).filter(function(l){return l.site==='Crunchyroll'})[0];return {img:m.coverImage&&m.coverImage.large,eps:m.episodes,v:cr?cr.url:'',r:m.title&&m.title.romaji||'',w:sitios(m.externalLinks)}}
+      if(m){var cr=(m.externalLinks||[]).filter(function(l){return l.site==='Crunchyroll'})[0];return {img:m.coverImage&&m.coverImage.large,eps:m.episodes,v:cr?cr.url:'',r:m.title&&m.title.romaji||'',w:sitios(m.externalLinks),ad:esAdulto(m)}}
       break;
     }
     await pausa(1500);
@@ -305,10 +309,10 @@ async function buscarUno(a){
   return null;
 }
 function vivo(a){var k=String(a.t).toLowerCase();return items.filter(function(x){return String(x.t).toLowerCase()===k})[0]||a}
-function sinChequear(){return items.some(function(a){return a.v===undefined||a.r===undefined||a.w===undefined})}
+function sinChequear(){return items.some(function(a){return a.v===undefined||a.r===undefined||a.w===undefined||a.ad===undefined})}
 async function buscarPortadas(){
   if(busy)return;
-  var falta=items.filter(function(a){return !a.u||a.e===''||a.v===undefined||a.r===undefined||a.w===undefined});
+  var falta=items.filter(function(a){return !a.u||a.e===''||a.v===undefined||a.r===undefined||a.w===undefined||a.ad===undefined});
   if(!falta.length){$('msg').textContent='Todos los animes ya tienen portada y episodios.';return}
   busy=true;$('cov').disabled=true;
   var ok=0,fallo=false;
@@ -331,11 +335,13 @@ async function buscarPortadas(){
         if(it.v===undefined)it.v=d.v||'';
         if(it.r===undefined)it.r=d.r||'';
         if(it.w===undefined)it.w=d.w||[];
+        if(it.ad===undefined)it.ad=!!d.ad;
         ok++;
       }else{
         if(it.v===undefined)it.v='';
         if(it.r===undefined)it.r='';
         if(it.w===undefined)it.w=[];
+        if(it.ad===undefined)it.ad=false;
       }
       save();render();
       await pausa(2200);
@@ -362,7 +368,7 @@ $('sf').onsubmit=async function(ev){
   var t=$('st').value.trim(), y=parseInt($('sy').value,10);
   if(!t)return;
   $('sm').textContent='Buscando...';$('rl').innerHTML='';
-  var q='query($s:String,$a:FuzzyDateInt,$b:FuzzyDateInt){Page(perPage:12){media(search:$s,type:ANIME,startDate_greater:$a,startDate_lesser:$b,sort:POPULARITY_DESC){title{romaji english}seasonYear startDate{year}episodes format coverImage{large}genres externalLinks{site url type}}}}';
+  var q='query($s:String,$a:FuzzyDateInt,$b:FuzzyDateInt){Page(perPage:12){media(search:$s,type:ANIME,startDate_greater:$a,startDate_lesser:$b,sort:POPULARITY_DESC){title{romaji english}seasonYear startDate{year}episodes format coverImage{large}genres isAdult externalLinks{site url type}}}}';
   var vars={s:t};
   if(y){vars.a=y*10000;vars.b=y*10000+1232}
   try{
@@ -388,7 +394,7 @@ $('rl').onclick=function(ev){
   var tr={'Action':'Acción','Adventure':'Aventura','Comedy':'Comedia','Drama':'Drama','Fantasy':'Fantasía','Horror':'Terror','Romance':'Romance','Sci-Fi':'Ciencia ficción','Slice of Life':'Slice of life','Mystery':'Misterio','Sports':'Deportes','Supernatural':'Sobrenatural','Psychological':'Psicológico','Mecha':'Mecha','Music':'Música'};
   g=tr[g]||g;
   var cr=(a.externalLinks||[]).filter(function(l){return l.site==='Crunchyroll'})[0];
-  items.unshift({id:'n'+Date.now(),t:nom,g:g,s:'Pendiente',e:a.episodes||'',p:'',u:(a.coverImage&&a.coverImage.large)||'',v:cr?cr.url:'',r:(a.title&&a.title.romaji)||'',w:sitios(a.externalLinks)});
+  items.unshift({id:'n'+Date.now(),t:nom,g:g,s:'Pendiente',e:a.episodes||'',p:'',u:(a.coverImage&&a.coverImage.large)||'',v:cr?cr.url:'',r:(a.title&&a.title.romaji)||'',w:sitios(a.externalLinks),ad:esAdulto(a)});
   save();fillGenres();render();
   b.outerHTML='<span class="m">Agregado</span>';
 };
@@ -401,7 +407,7 @@ function mezclar(a,b){
   a.concat(b).forEach(function(x){
     var k=String(x.t).toLowerCase();
     if(!m[k]){m[k]=Object.assign({},x);out.push(m[k])}
-    else{var y=m[k];['g','s','e','p','u','v','r','w'].forEach(function(f){if((y[f]===''||y[f]==null)&&x[f]!==''&&x[f]!=null)y[f]=x[f]})}
+    else{var y=m[k];['g','s','e','p','u','v','r','w','ad'].forEach(function(f){if((y[f]===''||y[f]==null)&&x[f]!==''&&x[f]!=null)y[f]=x[f]})}
   });
   return out;
 }
@@ -439,7 +445,7 @@ if(FB_CONFIG.apiKey&&window.firebase){
       items=mezclar(remota,items);
       save();fillGenres();render();
       $('msg').textContent='Lista cargada desde tu cuenta.';
-      if(items.some(function(a){return !a.u||a.v===undefined||a.r===undefined||a.w===undefined}))buscarPortadas();
+      if(items.some(function(a){return !a.u||a.v===undefined||a.r===undefined||a.w===undefined||a.ad===undefined}))buscarPortadas();
     }).catch(function(){$('msg').textContent='No pude leer tu lista de la nube. Revisa las reglas de Firestore.'});
   });
 }else{
@@ -449,7 +455,7 @@ if(FB_CONFIG.apiKey&&window.firebase){
 }
 
 fillGenres();render();
-if(items.some(function(a){return !a.u||a.v===undefined||a.r===undefined||a.w===undefined}))buscarPortadas();
+if(items.some(function(a){return !a.u||a.v===undefined||a.r===undefined||a.w===undefined||a.ad===undefined}))buscarPortadas();
 </script>
 </body>
 </html>
