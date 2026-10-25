@@ -61,6 +61,7 @@ details.fl summary{cursor:pointer;color:var(--mu);font-size:.85rem}
 .cv a{display:block;width:100%;height:100%;color:inherit;text-decoration:none;cursor:pointer}
 .w{display:flex;flex-wrap:wrap;gap:4px;margin:0}
 .w span{font-size:.7rem;padding:1px 7px;border-radius:99px;border:1px solid var(--bd);color:var(--mu)}
+.w a{font-size:.7rem;padding:1px 7px;border-radius:99px;text-decoration:none}
 .w .cr{background:#c2410c;color:#fff;border-color:#c2410c;font-weight:600}
 .w.n{font-size:.7rem;color:var(--mu)}
 @media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
@@ -161,7 +162,11 @@ function donde(a){
   if(!Array.isArray(a.w))return '';
   if(!a.w.length)return '<p class="w n">Sin info de dónde verlo</p>';
   var w=a.w.slice().sort(function(x,y){return (y==='Crunchyroll')-(x==='Crunchyroll')});
-  var mostrar=w.slice(0,4).map(function(x){return '<span'+(x==='Crunchyroll'?' class="cr"':'')+'>'+(x==='Crunchyroll'?'✓ ':'')+esc(x)+'</span>'}).join('');
+  var cu=seguro(a.v),esCr=/crunchyroll\.com/i.test(cu);
+  var mostrar=w.slice(0,4).map(function(x){
+    if(x==='Crunchyroll'&&esCr)return '<a class="cr" href="'+esc(cu)+'" target="_blank" rel="noopener noreferrer" title="Abrir en Crunchyroll">✓ Crunchyroll</a>';
+    return '<span'+(x==='Crunchyroll'?' class="cr"':'')+'>'+(x==='Crunchyroll'?'✓ ':'')+esc(x)+'</span>';
+  }).join('');
   if(w.length>4)mostrar+='<span>+'+(w.length-4)+' más</span>';
   return '<p class="w">'+mostrar+'</p>';
 }
