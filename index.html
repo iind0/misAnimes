@@ -1,20 +1,40 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <!-- Script principal (puedes dejar el tuyo con tu ca-pub real) -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-     crossorigin="anonymous"></script>
+ <!-- Contenedor con estilos para ver dónde está la ventana del anuncio -->
+<div class="zona-anuncio-debug" style="margin: 20px 0; min-height: 100px;">
+    
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+         crossorigin="anonymous"></script>
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-3940256099942544"
+         data-ad-slot="6305972111"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>
+         (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
 
-<!-- Bloque de prueba de Google -->
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-client="ca-pub-3940256099942544"
-     data-ad-slot="6305972111"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
+</div>
+
+<style>
+/* Estilo temporal para ver la caja del anuncio claramente */
+.zona-anuncio-debug {
+  border: 2px dashed #ff4757;
+  background-color: rgba(255, 71, 87, 0.05);
+  position: relative;
+}
+.zona-anuncio-debug::before {
+  content: "Espacio del Anuncio";
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  font-size: 11px;
+  color: #ff4757;
+  font-family: sans-serif;
+}
+</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mis animes</title>
